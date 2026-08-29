@@ -1,0 +1,11 @@
+{
+  "name": "neohiro-worldmap",
+  "version": "0.1.0",
+  "description": "Dynamic global data layers for the neohiro dashboard.",
+  "main": "src/worldmap.js",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/"
+  },
+  "license": "MIT"
+}
