@@ -248,11 +248,12 @@ These scripts run as the proposal Heart process. The live Heart
   (both CDNs unreachable) still has no visible terminator — no warning
   is shown. A future revision should draw a `day-night.svg` overlay on
   the fallback.
-- **MapLibre vector basemaps require an API key.** The default
-  `?renderer=maplibre` mode falls back to raster basemaps (Esri / CARTO)
-  that work without a key. To unlock the true 3D vector style, set
-  `NeoWorldmapMaplibre._basemaps.satellite.style` to a MapTiler URL with
-  a free-tier key. The fallback is intentional; nothing breaks.
+- **MapTiler vector basemaps require a free API key.** The renderer ships
+  with a placeholder sentinel key. Until `window.MAP_TILER_KEY` is set
+  (before `worldmap.js` loads), `_resolveStyle()` returns the raster fallback.
+  If a real key is configured but MapTiler returns 401/403, the error handler
+  catches the failure and falls back to raster automatically. The Terrain
+  button is only effective on vector styles; on raster it is a no-op.
 - **SSE auto-reconnect is 5s linear backoff.** No exponential backoff or
   jitter. If the upstream is down, the client fires a request every
   5s indefinitely. The new NDJSON live feed (`LiveDatalayerFeed`) does
@@ -317,10 +318,12 @@ CSS lives in `assets/style.css` (`.legend-fab`, `.legend-backdrop`,
 
 - `worldmap/src/worldmap.js` — server-side helpers (`encodeViewportState`,
   `decodeViewportState`, `mergePrefs`, `getStarredLayers`)
-- `neohiro-dashboard/tests/test_worldmap.mjs` — 28 tests (node:test) for
+- `neohiro-dashboard/tests/test_worldmap.mjs` — 30 tests (node:test) for
   the browser-side `NeoWorldmap` module (auth, layers, basemaps,
   viewport state, day/night, URL overrides, MapLibre params, NDJSON feed,
-  feed lifecycle + close, O(1) layer index, viz size coercion)
+  feed lifecycle + close, O(1) layer index, viz size coercion,
+  terrain localStorage persistence, MapTiler vector-style key guard,
+  terrain button hidden-by-default)
 - `neohiro-dashboard/tests/test_worldmap_e2e.mjs` — 8 Playwright smoke
   tests (Leaflet init, legend ≥42 rows, basemap persist, day/night
   persist, `?basemap=dark`, `?dn=1`, `?layer=`, mobile bottom sheet)
@@ -332,5 +335,59 @@ CSS lives in `assets/style.css` (`.legend-fab`, `.legend-backdrop`,
 - `neohiro-dashboard/index.html` — § worldmap-section (map + legend panel layout)
 - `neohiro-dashboard/assets/style.css` — `.worldmap-layout`, `.legend-panel`, `.legend-group`, `#worldmap-section` (full-bleed breakout), `.legend-fab`, `.legend-backdrop` (mobile bottom sheet)
 - `neohiro-dashboard/assets/worldmap.js` — `BASEMAPS`, `renderLayerToggles`, `setBasemap`, `initLegendControls`, `initBottomSheet`, `computeTerminatorCoords`, `toggleDayNight`, `initMapLibreMap`, `LiveDatalayerFeed`
-- `neohiro-dashboard/assets/worldmap.maplibre.js` — MapLibre GL JS 3D renderer (activated via `?renderer=maplibre&pitch=30&bearing=15`)
+- `neohiro-dashboard/assets/worldmap.maplibre.js` — MapLibre GL JS 3D renderer
+  (activated via `?renderer=maplibre&pitch=30&bearing=15`); API:
+  `initMap`, `remove`, `setTerrain`, `getTerrainEnabled`, `getHasTerrain`,
+  `renderDayNight`, `addLayerFeatures`, `removeLayerFeatures`; MapTiler key
+  via `window.MAP_TILER_KEY`; terrain-rgb source auto-added on vector styles;
+  error handler falls back to raster on 401/403
 - `neohiro-dashboard/assets/app.js` — `initWorldmap` (delegates to NeoWorldmap)
+
+## 10. MapTiler vector basemaps + 3D terrain (2026-08-31)
+
+When the URL flag `?renderer=maplibre` is set, the dashboard switches
+from Leaflet raster basemaps to MapLibre GL JS. By default, the renderer
+uses raster basemaps (Esri / CARTO / OSM) that work out of the box.
+
+To unlock **vector tiles** (crisp labels, native hillshade) and **3D
+terrain elevation**, set a MapTiler free-tier key:
+
+1. Get a free key at https://cloud.maptiler.com (100 000 map loads/month).
+2. Set `window.MAP_TILER_KEY = 'your-key'` before `worldmap.js` loads,
+   e.g. in a `<script>` tag in `index.html` above the worldmap scripts.
+3. Remove the placeholder sentinel `get_your_own_OpIi9ZULNHzrESv6T2vL`
+   in `assets/worldmap.maplibre.js`.
+
+When a real key is configured, `_resolveStyle()` returns the MapTiler
+style URL and MapLibre fetches the vector style at runtime. The terrain
+source `mapbox-elev` is auto-added on the `load` event and
+`setTerrain({ source, exaggeration: 1.4 })` is called.
+
+The **Terrain** toolbar button (id `terrain-toggle`) is hidden by
+default in HTML and only revealed by `initMapLibreMap()` after the
+MapLibre renderer is active. Clicking it toggles 3D terrain on/off;
+the state is persisted to localStorage (`neohiro_worldmap_terrain`) and
+restored on subsequent loads.
+
+**If the MapTiler style URL fails to load** (e.g. 401 from a bad key),
+the renderer's `error` listener detects the status and falls back to
+the raster style. The page does not break, but vector features are
+unavailable. The `error` listener also resets `ML_STATE.hasTerrain` to
+`false` so a re-toggle won't crash.
+
+**Raster fallback behavior**: on raster style basemaps, `setTerrain()`
+is a no-op (the dem source is not added because raster basemaps do not
+support 3D terrain). The Terrain button is still visible but stays
+inactive if the user has not configured a MapTiler key.
+
+This unlocks:
+- 3D camera (pitch + bearing already in §1, now with vector labels that
+  don't pixelate when the user tilts the view)
+- 3D terrain extrusion (mountains, valleys visible at zoom > 5)
+- Native building extrusion at zoom > 14 (MapTiler hybrid style
+  includes a 3D buildings layer)
+- Improved typography (vector text vs raster labels)
+
+The 3D terrain feature is opt-in per user (toggle button); the default
+remains flat. The default `?renderer=maplibre&pitch=30&bearing=-45`
+flag still produces a tilted view but without terrain extrusion.
