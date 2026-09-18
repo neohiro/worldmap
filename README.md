@@ -71,3 +71,5 @@ wrangler pages deploy functions/ --project-name=neohiro-worldmap
 The dashboard loads `assets/worldmap.js` which exposes `NeoWorldmap` on
 the global window. The dashboard's `initWorldmap()` uses these helpers to
 build layer toggles and persist state.
+
+[![Visitors](https://api.visitorbadge.io/api/visitors?path=github.com/neohiro/worldmap&label=Visitors&countColor=%23263759)](https://visitorbadge.io/status?path=github.com/neohiro/worldmap)
