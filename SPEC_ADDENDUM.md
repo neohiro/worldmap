@@ -318,12 +318,13 @@ CSS lives in `assets/style.css` (`.legend-fab`, `.legend-backdrop`,
 
 - `worldmap/src/worldmap.js` — server-side helpers (`encodeViewportState`,
   `decodeViewportState`, `mergePrefs`, `getStarredLayers`)
-- `neohiro-dashboard/tests/test_worldmap.mjs` — 30 tests (node:test) for
+- `neohiro-dashboard/tests/test_worldmap.mjs` — 33 tests (node:test) for
   the browser-side `NeoWorldmap` module (auth, layers, basemaps,
   viewport state, day/night, URL overrides, MapLibre params, NDJSON feed,
   feed lifecycle + close, O(1) layer index, viz size coercion,
   terrain localStorage persistence, MapTiler vector-style key guard,
-  terrain button hidden-by-default)
+  terrain button hidden-by-default, NDJSON clean-close backoff,
+  NDJSON catch race, day/night timer clear on disable)
 - `neohiro-dashboard/tests/test_worldmap_e2e.mjs` — 8 Playwright smoke
   tests (Leaflet init, legend ≥42 rows, basemap persist, day/night
   persist, `?basemap=dark`, `?dn=1`, `?layer=`, mobile bottom sheet)
